@@ -1,0 +1,4 @@
+.env
+a.out
+shaders/simple_shader.frag.spv
+shaders/simple_shader.vert.spv
