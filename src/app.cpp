@@ -41,9 +41,10 @@ namespace sve {
     }
 
     void App::run() {
-        
+        std::cout << "[sve] engine is starting...\n";
         std::vector<std::unique_ptr<Buffer>> uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
+        std::cout << "[sve] created UBO buffers\n";
         for (int i = 0; i < uboBuffers.size(); i++)
         {
             uboBuffers[i] = std::make_unique<Buffer>(
@@ -57,9 +58,12 @@ namespace sve {
             uboBuffers[i]->map();
         } 
 
+        std::cout << "[sve] building global set layout\n";
+        std::cout << "[sve] added binding at 0 of type uniform buffer at all shader stages\n";
         auto globalSetLayout = DescriptorSetLayout::Builder(device)
             .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
             .build();
+        std::cout << "[sve] global descriptsor sets created\n";
         std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
         for (int i = 0; i < globalDescriptorSets.size(); i++) {
             auto bufferInfo = uboBuffers[i]->descriptorInfo();
@@ -69,6 +73,7 @@ namespace sve {
         }
             
 
+        std::cout << "[sve] (imgui) initialized\n";
         sve::SveImgui imgui{
             window,
             device,
@@ -76,13 +81,18 @@ namespace sve {
             renderer.getImageCount()    
         };
 
+        std::cout << "[sve] (system) enabling systems\n";
         sve::SimpleRenderSystem simpleRenderSystem{device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
+        std::cout << "[sve] (system: SimpleRender) initialized\n";
         sve::PointLightSystem pointLightSystem{device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
+        std::cout << "[sve] (system: PointLight) initialized\n";
 
         sve::Camera camera{};
                                                       /* 0.f 0.f 2.5f is cubes position */
         camera.setViewTarget(glm::vec3(-1, -2.5, 2.f), glm::vec3(0.f, 0.f, 2.5f));
-
+        std::cout << "[sve] initialized camera\n";
+        std::cout << "[sve] set default camera view target (projecting perspective)\n";
+        std::cout << "[sve] engine has started\n";
 
         // KeyboardMovementController cameraController{};
 
@@ -124,7 +134,7 @@ namespace sve {
                 GlobalUbo ubo{};
                 ubo.projection = camera.getProjection();
                 ubo.view = camera.getView();
-
+                pointLightSystem.update(frameInfo, ubo);
                 uboBuffers[frameIndex]->writeToBuffer(&ubo);
                 uboBuffers[frameIndex]->flush();
 
@@ -170,6 +180,24 @@ namespace sve {
         floor.transform.translation = {0., 0.5f, 0.f};
         gameObjects.emplace(floor.getId(), std::move(floor));
 
+        std::vector<glm::vec3> lightColors {
+            {1.f, .1f, .1f},
+            {.1f, .1f, 1.f},
+            {.1f, 1.f, .1f},
+            {1.f, 1.f, .1f},
+            {.1f, 1.f, 1.f},
+            {1.f, 1.f, 1.f} //
+        };
+
+        for (int i = 0; i < lightColors.size(); i++) {
+            auto pointLight = GameObject::makePointLight(0.5f);
+            pointLight.color = lightColors[i];
+
+            auto rotateLight = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>()) / lightColors.size(), {0.f, -1.f, 0.f});
+            pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(-1.f, -1.f, -1.f, 1.f));
+
+            gameObjects.emplace(pointLight.getId(), std::move(pointLight));
+        }    
     }
 
     void App::init_imgui()
